@@ -1,6 +1,8 @@
 """
-Google Gemini AI Chart Analyzer
-নতুন google-genai package ব্যবহার করছে
+Advanced Gemini AI Analyzer
+- Deep Image/Chart Analysis
+- Futures Trading Signals  
+- Short-term Profit Stages
 """
 import logging
 from PIL import Image
@@ -13,54 +15,116 @@ logger = logging.getLogger(__name__)
 
 class AIAnalyzer:
     def __init__(self):
-        from google import genai
-        from google.genai import types
-        self.client = genai.Client(api_key=config.GEMINI_API_KEY)
-        self.types = types
-        self.model = "gemini-2.5-flash-preview-05-20"
-
-    async def analyze_chart(self,
-                            chart_bytes: bytes,
-                            symbol: str,
-                            interval: str,
-                            signal: TradingSignal,
-                            ticker: dict) -> str:
-        """Gemini Vision দিয়ে chart বিশ্লেষণ করো"""
         try:
-            image = Image.open(BytesIO(chart_bytes))
+            from google import genai
+            from google.genai import types
+            self.client = genai.Client(api_key=config.GEMINI_API_KEY)
+            self.types = types
+            self.model = "gemini-2.5-flash-preview-05-20"
+            self.available = True
+            logger.info("✅ Gemini AI initialized!")
+        except Exception as e:
+            logger.error(f"❌ Gemini init failed: {e}")
+            self.available = False
 
-            prompt = f"""তুমি একজন expert crypto trading analyst।
-নিচের chart এবং data দেখে বাংলায় বিশ্লেষণ করো।
+    async def analyze_chart(self, chart_bytes: bytes, symbol: str,
+                            interval: str, signal: TradingSignal, ticker: dict) -> str:
+        """Deep chart image analysis + futures + profit stages"""
+        if not self.available:
+            return self._fallback_analysis(signal, ticker, symbol)
 
-📊 Coin: {symbol}
+        try:
+            price = ticker['price']
+            
+            prompt = f"""তুমি একজন professional crypto futures trader এবং expert technical analyst।
+Chart image দেখে এবং নিচের সব data বিশ্লেষণ করে সম্পূর্ণ বাংলায় বিস্তারিত trading plan দাও।
+
+═══════════════════════════════
+📊 MARKET DATA
+═══════════════════════════════
+🪙 Pair: {symbol} (USDT Perpetual)
 ⏰ Timeframe: {interval}
-💰 Current Price: ${ticker['price']:,.4f}
-📈 24h Change: {ticker['change_24h']:+.2f}%
-📊 High: ${ticker['high_24h']:,.4f}
-📉 Low: ${ticker['low_24h']:,.4f}
+💰 Current Price: ${price:,.4f}
+📊 24h Change: {ticker['change_24h']:+.2f}%
+📈 24h High: ${ticker['high_24h']:,.4f}
+📉 24h Low: ${ticker['low_24h']:,.4f}
 
-Technical Indicators:
-• RSI(14): {signal.rsi:.1f}
+═══════════════════════════════
+📉 TECHNICAL INDICATORS
+═══════════════════════════════
+• RSI(14): {signal.rsi:.2f} — {"🔴 Overbought (70+)" if signal.rsi>70 else "🟢 Oversold (<30)" if signal.rsi<30 else "⚪ Neutral Zone"}
 • MACD: {signal.macd_signal}
 • Bollinger Bands: {signal.bb_signal}
-• Trend: {signal.trend}
-• Support: ${signal.support:,.4f}
-• Resistance: ${signal.resistance:,.4f}
-• Stop Loss: ${signal.stop_loss:,.4f}
-• Take Profit: ${signal.take_profit:,.4f}
+• EMA Trend: {signal.trend}
+• Key Support: ${signal.support:,.4f}
+• Key Resistance: ${signal.resistance:,.4f}
 
-Algorithm Signal: {signal.action} ({signal.strength}) — {signal.confidence}% confidence
+═══════════════════════════════
+🤖 ALGORITHM SIGNAL
+═══════════════════════════════
+Direction: {signal.action} | Power: {signal.strength} | Confidence: {signal.confidence}%
 
-Chart দেখে বাংলায় বলো:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+এখন chart image দেখে নিচের প্রতিটা section বিস্তারিক বাংলায় লেখো:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-1️⃣ Candlestick Pattern কী দেখছো?
-2️⃣ এখন BUY 🟢 / SELL 🔴 / HOLD 🟡 — কী করা উচিত? কেন?
-3️⃣ Risk কোথায়? Stop Loss কত?
-4️⃣ Short ও Long term target কত?
-5️⃣ Overall Bullish নাকি Bearish?
+**📸 CHART IMAGE ANALYSIS**
+Chart-এর candlestick pattern কী দেখছো?
+- কোন specific pattern আছে? (Doji, Hammer, Engulfing, Morning Star ইত্যাদি)
+- Trend কোন দিকে? Higher highs নাকি Lower lows?
+- Volume কেমন? Price-এর সাথে match করছে?
+- Bollinger Bands squeeze নাকি expand?
+- EMA lines কোথায় আছে? Crossover হয়েছে?
+- RSI divergence আছে কি?
+- MACD histogram বাড়ছে নাকি কমছে?
+- কোনো important support/resistance break হয়েছে?
 
-সহজ বাংলায়, Emoji দিয়ে, bullet points-এ লেখো।
-শেষে বলো: নিজে verify করে trade করুন।"""
+**🎯 SPOT TRADING PLAN**
+Spot market-এর জন্য:
+- 🟢 BUY করবো নাকি 🔴 SELL করবো নাকি 🟡 HOLD করবো?
+- Entry Price: $___
+- কেন এই entry?
+
+**📊 SHORT-TERM PROFIT STAGES (Spot)**
+৩টা target stage বলো:
+- 🥉 Stage 1 (Quick profit): $___  (+___%)
+- 🥈 Stage 2 (Main target): $___  (+___%)  
+- 🥇 Stage 3 (Maximum target): $___  (+___%)
+- 🛑 Stop Loss: $___  (-___%)
+
+**⚡ FUTURES TRADING PLAN**
+Futures/Leverage trading:
+- Position: LONG 📈 নাকি SHORT 📉?
+- Recommended Leverage: ___x (safe)
+- Entry Zone: $___  to  $___
+- কেন এই position?
+
+**💥 FUTURES PROFIT STAGES**
+৪টা target stage:
+- 🎯 TP1 (Take Profit 1): $___  (+___%) — এখানে ৩০% position close
+- 🎯 TP2 (Take Profit 2): $___  (+___%) — এখানে ৩০% position close
+- 🎯 TP3 (Take Profit 3): $___  (+___%) — এখানে ২০% position close
+- 🎯 TP4 (Max Target):    $___  (+___%) — বাকি ২০% এখানে
+- 🛑 Stop Loss: $___  (-___%) — এটা hit করলে সব close
+
+**⚠️ RISK MANAGEMENT**
+- Risk/Reward Ratio: ___:1
+- Liquidation price (10x leverage): $___
+- Maximum loss amount: ___% of capital
+- Position size recommendation: মোট capital-এর ___%
+
+**🔮 PRICE PREDICTION**
+- আগামী ৪ ঘন্টায়: $___ থেকে $___ 
+- আগামী ২৪ ঘন্টায়: $___ থেকে $___
+- Bull scenario: কী হলে উপরে যাবে?
+- Bear scenario: কী হলে নিচে যাবে?
+- Key level to watch: $___
+
+**🏆 FINAL RECOMMENDATION**
+সব মিলিয়ে সবচেয়ে ভালো trade কী?
+একটা সুনির্দিষ্ট action plan দাও।
+
+সব price সংখ্যা দিয়ে বলো। Emoji দিয়ে সাজাও।"""
 
             response = self.client.models.generate_content(
                 model=self.model,
@@ -78,39 +142,51 @@ Chart দেখে বাংলায় বলো:
             logger.error(f"Gemini Vision error: {e}")
             return await self.get_quick_advice(symbol, signal, ticker)
 
-    async def get_quick_advice(self,
-                               symbol: str,
-                               signal: TradingSignal,
-                               ticker: dict) -> str:
-        """Chart ছাড়া শুধু data দিয়ে quick analysis"""
+    async def get_quick_advice(self, symbol: str,
+                               signal: TradingSignal, ticker: dict) -> str:
+        """Quick text-only analysis with futures + profit stages"""
+        if not self.available:
+            return self._fallback_analysis(signal, ticker, symbol)
+
         try:
-            prompt = f"""তুমি একজন expert crypto trading analyst।
-নিচের data দেখে বাংলায় সংক্ষেপে advice দাও।
+            price = ticker['price']
+            
+            prompt = f"""তুমি একজন professional crypto futures trader।
+নিচের data দেখে complete trading plan বাংলায় দাও।
 
-{symbol} Data:
-💰 Price: ${ticker['price']:,.4f}
-📊 24h: {ticker['change_24h']:+.2f}%
-📈 High: ${ticker['high_24h']:,.4f}
-📉 Low: ${ticker['low_24h']:,.4f}
+{symbol} | ${price:,.4f} | 24h: {ticker['change_24h']:+.2f}%
+High: ${ticker['high_24h']:,.4f} | Low: ${ticker['low_24h']:,.4f}
+RSI: {signal.rsi:.1f} | MACD: {signal.macd_signal} | BB: {signal.bb_signal}
+Trend: {signal.trend} | Support: ${signal.support:,.4f} | Resistance: ${signal.resistance:,.4f}
+Signal: {signal.action} ({signal.strength}) | Confidence: {signal.confidence}%
 
-Indicators:
-• RSI: {signal.rsi:.1f} {"(Overbought ⚠️)" if signal.rsi>70 else "(Oversold ✅)" if signal.rsi<30 else "(Normal)"}
-• MACD: {signal.macd_signal}
-• BB: {signal.bb_signal}
-• Trend: {signal.trend}
-• Support: ${signal.support:,.4f}
-• Resistance: ${signal.resistance:,.4f}
+Complete plan দাও:
 
-Algorithm: {signal.action} ({signal.strength}) — {signal.confidence}% confident
+**🎯 SPOT TRADING**
+- Action: BUY/SELL/HOLD
+- Entry: $___
+- Stage 1: $___ (+___%)
+- Stage 2: $___ (+___%)
+- Stage 3: $___ (+___%)
+- Stop Loss: $___
 
-৫-৬ লাইনে বাংলায় বলো:
-✅ BUY/SELL/HOLD কী করবো?
-✅ কেন? (২-৩ কারণ)
-✅ Stop Loss ও Target কত?
-✅ Risk কোথায়?
+**⚡ FUTURES TRADING**
+- Position: LONG/SHORT
+- Leverage: ___x
+- Entry: $___
+- TP1: $___ (৩০% close)
+- TP2: $___ (৩০% close)
+- TP3: $___ (২০% close)
+- TP4: $___ (২০% close)
+- Stop Loss: $___
+- Risk/Reward: ___:1
 
-Emoji দিয়ে সহজ বাংলায় লেখো।
-শেষে: নিজে verify করে trade করুন।"""
+**🔮 NEXT 24H PREDICTION**
+- Range: $___ - $___
+- Most likely direction: UP/DOWN
+- Key levels to watch: $___
+
+Emoji দিয়ে বাংলায় বিস্তারিত।"""
 
             response = self.client.models.generate_content(
                 model=self.model,
@@ -122,23 +198,44 @@ Emoji দিয়ে সহজ বাংলায় লেখো।
             logger.error(f"Gemini text error: {e}")
             return self._fallback_analysis(signal, ticker, symbol)
 
-    async def get_market_sentiment(self, coins_data: list) -> str:
-        """Market overall sentiment"""
+    async def get_futures_signal(self, symbol: str,
+                                  signal: TradingSignal, ticker: dict) -> str:
+        """Dedicated futures signal"""
+        if not self.available:
+            return self._futures_fallback(signal, ticker, symbol)
+
         try:
-            coins_text = "\n".join(
-                f"• {c['symbol']}: ${c['price']:,.4f} ({c['change_24h']:+.2f}%)"
-                for c in coins_data
-            )
-            prompt = f"""নিচের crypto market data দেখে বাংলায় overall sentiment বলো:
+            price = ticker['price']
+            
+            prompt = f"""তুমি একজন expert crypto futures trader।
+{symbol} এর জন্য শুধু futures trading signal দাও। বাংলায়।
 
-{coins_text}
+Price: ${price:,.4f} | RSI: {signal.rsi:.1f} | Trend: {signal.trend}
+Support: ${signal.support:,.4f} | Resistance: ${signal.resistance:,.4f}
+Algorithm: {signal.action} ({signal.confidence}% confident)
 
-৩-৪ লাইনে বলো:
-- Market এখন Bullish নাকি Bearish?
-- কোন coin ভালো দেখাচ্ছে?
-- কোনো warning আছে?
+এই format-এ দাও:
 
-সহজ বাংলায় Emoji দিয়ে।"""
+⚡ FUTURES SIGNAL — {symbol}
+
+📍 Position: LONG/SHORT
+📊 Leverage: ___x (recommended)
+💰 Entry Zone: $___ — $___
+
+🎯 Take Profit Levels:
+• TP1: $___ (+___%) → ৩০% close করো
+• TP2: $___ (+___%) → ৩০% close করো  
+• TP3: $___ (+___%) → ২০% close করো
+• TP4: $___ (+___%) → ২০% close করো
+
+🛑 Stop Loss: $___ (-___%)
+📊 Risk/Reward: ___:1
+💥 Liquidation (10x): $___
+
+⏰ Valid for: ৪-৮ ঘন্টা
+🔥 Signal Strength: ___/10
+
+সংক্ষেপে কেন এই signal তার ৩টা কারণ।"""
 
             response = self.client.models.generate_content(
                 model=self.model,
@@ -147,38 +244,117 @@ Emoji দিয়ে সহজ বাংলায় লেখো।
             return response.text
 
         except Exception as e:
-            logger.error(f"Market sentiment error: {e}")
-            return "⚠️ Market sentiment analysis এখন available নেই।"
+            logger.error(f"Futures signal error: {e}")
+            return self._futures_fallback(signal, ticker, symbol)
+
+    async def get_market_sentiment(self, coins_data: list) -> str:
+        if not self.available:
+            return "⚠️ AI analysis unavailable।"
+        try:
+            coins_text = "\n".join(
+                f"• {c['symbol']}: ${c['price']:,.4f} ({c['change_24h']:+.2f}%)"
+                for c in coins_data
+            )
+            prompt = f"""Crypto market overview:
+{coins_text}
+
+বাংলায় বলো:
+- Overall market: Bullish/Bearish/Neutral?
+- Best opportunity এখন কোনটা?
+- Avoid করা উচিত কোনটা?
+- আজকের trading strategy কী হওয়া উচিত?
+- Futures-এর জন্য সবচেয়ে ভালো coin কোনটা?
+
+Emoji দিয়ে বিস্তারিত।"""
+
+            response = self.client.models.generate_content(
+                model=self.model, contents=[prompt]
+            )
+            return response.text
+        except Exception as e:
+            return "⚠️ Market sentiment unavailable।"
+
+    def _futures_fallback(self, signal: TradingSignal,
+                          ticker: dict, symbol: str) -> str:
+        price = ticker['price']
+        is_long = signal.action == "BUY"
+        
+        tp1 = price * (1.015 if is_long else 0.985)
+        tp2 = price * (1.030 if is_long else 0.970)
+        tp3 = price * (1.050 if is_long else 0.950)
+        tp4 = price * (1.080 if is_long else 0.920)
+        sl  = price * (0.980 if is_long else 1.020)
+        
+        position = "LONG 📈" if is_long else "SHORT 📉"
+
+        return f"""⚡ **FUTURES SIGNAL — {symbol}**
+━━━━━━━━━━━━━━━━━━━━
+
+📍 Position: **{position}**
+📊 Leverage: **5-10x** (safe)
+💰 Entry: **${price:,.4f}**
+
+🎯 **Take Profit Stages:**
+• TP1: ${tp1:,.4f} (+1.5%) → ৩০% close
+• TP2: ${tp2:,.4f} (+3.0%) → ৩০% close
+• TP3: ${tp3:,.4f} (+5.0%) → ২০% close
+• TP4: ${tp4:,.4f} (+8.0%) → ২০% close
+
+🛑 **Stop Loss:** ${sl:,.4f} (-2%)
+📊 **Risk/Reward:** 1:4
+💪 **Signal:** {signal.strength} | {signal.confidence}%"""
 
     def _fallback_analysis(self, signal: TradingSignal,
                            ticker: dict, symbol: str) -> str:
-        """API কাজ না করলে technical analysis"""
-        action_text = {
-            "BUY":  "🟢 BUY করার সুযোগ আছে",
-            "SELL": "🔴 SELL করুন",
-            "HOLD": "🟡 এখন HOLD করুন"
-        }.get(signal.action, "🟡 অপেক্ষা করুন")
+        price = ticker['price']
+        is_buy = signal.action == "BUY"
 
-        reasons_text = "\n".join(signal.reasons[:6])
+        sp1 = price * (1.02 if is_buy else 0.98)
+        sp2 = price * (1.04 if is_buy else 0.96)
+        sp3 = price * (1.07 if is_buy else 0.93)
+        ssl = price * (0.97 if is_buy else 1.03)
 
-        return f"""📊 **Technical Analysis — {symbol}**
+        fp1 = price * (1.015 if is_buy else 0.985)
+        fp2 = price * (1.03 if is_buy else 0.97)
+        fp3 = price * (1.05 if is_buy else 0.95)
+        fp4 = price * (1.08 if is_buy else 0.92)
+        fsl = price * (0.98 if is_buy else 1.02)
+
+        action = "🟢 BUY" if is_buy else "🔴 SELL" if signal.action=="SELL" else "🟡 HOLD"
+        pos = "LONG 📈" if is_buy else "SHORT 📉"
+        reasons = "\n".join(signal.reasons[:5])
+
+        return f"""📊 **{symbol} Complete Analysis**
 ━━━━━━━━━━━━━━━━━━━━
+💰 Price: ${price:,.4f} | 24h: {ticker['change_24h']:+.2f}%
 
-{action_text}
-💪 Strength: {signal.strength} | 🎯 Confidence: {signal.confidence}%
+**Signal:** {action} | {signal.strength} | {signal.confidence}%
 
 **Indicators:**
-{reasons_text}
+{reasons}
 
-**Risk Management:**
-🛡️ Stop Loss:   ${signal.stop_loss:,.4f}
-🎯 Take Profit: ${signal.take_profit:,.4f}
-📉 Support:     ${signal.support:,.4f}
-📈 Resistance:  ${signal.resistance:,.4f}
+━━━━━━━━━━━━━━━━━━━━
+**🎯 SPOT TRADING**
+Entry: ${price:,.4f}
+• Stage 1: ${sp1:,.4f} (+2%)
+• Stage 2: ${sp2:,.4f} (+4%)
+• Stage 3: ${sp3:,.4f} (+7%)
+• Stop Loss: ${ssl:,.4f} (-3%)
 
-⚠️ নিজে verify করে trade করুন।"""
+━━━━━━━━━━━━━━━━━━━━
+**⚡ FUTURES TRADING**
+Position: {pos} | Leverage: 5-10x
+Entry: ${price:,.4f}
+• TP1: ${fp1:,.4f} (+1.5%) → ৩০% close
+• TP2: ${fp2:,.4f} (+3%) → ৩০% close
+• TP3: ${fp3:,.4f} (+5%) → ২০% close
+• TP4: ${fp4:,.4f} (+8%) → ২০% close
+• Stop Loss: ${fsl:,.4f} (-2%)
+• Risk/Reward: 1:4
+
+📉 Support: ${signal.support:,.4f}
+📈 Resistance: ${signal.resistance:,.4f}"""
 
 
 # Singleton
 ai_analyzer = AIAnalyzer()
-
