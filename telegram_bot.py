@@ -682,7 +682,7 @@ class CryptoTradingBot:
             print("❌ TELEGRAM_BOT_TOKEN .env file-এ set করুন!")
             return
         
-        if not config.ANTHROPIC_API_KEY:
+        
             print("⚠️ ANTHROPIC_API_KEY নেই। AI analysis disabled থাকবে।")
         
         app = (Application.builder()
