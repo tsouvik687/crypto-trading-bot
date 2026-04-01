@@ -15,7 +15,7 @@ class OptionsAIAnalyzer:
             from google.genai import types
             self.client = genai.Client(api_key=config.GEMINI_API_KEY)
             self.types = types
-            self.model = "gemini-2.0-flash"
+            self.model = "gemini-1.5-flash"
             self.available = True
         except Exception as e:
             logger.error(f"Gemini init failed: {e}")
