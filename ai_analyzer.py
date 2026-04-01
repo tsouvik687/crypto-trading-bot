@@ -17,7 +17,7 @@ class AIAnalyzer:
             from google.genai import types
             self.client = genai.Client(api_key=config.GEMINI_API_KEY)
             self.types = types
-            self.model = "gemini-2.0-flash"
+            self.model = "gemini-1.5-flash"
             self.available = True
             logger.info("✅ Gemini AI ready!")
         except Exception as e:
