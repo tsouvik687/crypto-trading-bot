@@ -15,6 +15,12 @@ from telegram.ext import (
 from telegram.constants import ParseMode, ChatAction
 
 from config import config
+from options_commands import (cmd_options, cmd_options_ai, cmd_vix,
+                              cmd_greeks, cmd_index_futures, cmd_strategy,
+                              handle_options_callback)
+from stock_commands import (cmd_stock, cmd_stock_analyze, cmd_stockprice,
+                             cmd_indices, cmd_stock_alert, cmd_stockmarket,
+                             handle_stock_callback)
 from binance_client import binance
 from technical_analysis import analyzer
 from chart_generator import chart_gen
@@ -73,7 +79,13 @@ Binance-এর real-time data ব্যবহার করে আমি:
 ✅ Live price alerts পাঠাই
 ✅ Support & Resistance বলি
 
-**Commands:**
+**Commands:
+`/options NIFTY` — Options Chain
+`/optionsai NIFTY` — AI Options Analysis
+`/ifutures NIFTY` — Index Futures Signal
+`/vix` — India VIX
+`/greeks NIFTY 22000 CE 7` — Greeks
+`/strategy NIFTY BULLISH` — Strategy**
 `/signal BTCUSDT` — Trading signal + Chart
 `/price BTCUSDT` — Live price
 `/analyze BTCUSDT 1h` — Full AI analysis  
@@ -82,7 +94,7 @@ Binance-এর real-time data ব্যবহার করে আমি:
 `/movers` — Top gainers & losers
 `/help` — সব commands
 
-⚠️ *Disclaimer: এটি educational tool। Investment-এ নিজ দায়িত্বে সিদ্ধান্ত নিন।*
+
 """
     
     await update.message.reply_text(
@@ -254,7 +266,7 @@ async def cmd_signal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • 📉 Support: ${format_number(signal.support)}
 • 📈 Resistance: ${format_number(signal.resistance)}
 
-⚠️ _নিজে verify করে trade করুন_
+
 """
         
         keyboard = [
@@ -320,8 +332,8 @@ async def cmd_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
         # Send AI analysis
-        header = f"🤖 **Claude AI Analysis - {symbol}**\n━━━━━━━━━━━━━━━━━━━━\n\n"
-        footer = f"\n\n⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n⚠️ _Educational purpose only_"
+        header = f"🤖 **AI Analysis — {symbol}**\n━━━━━━━━━━━━━━━━━━━━\n\n"
+        footer = f"\n\n⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         
         await update.message.reply_text(
             header + ai_analysis + footer,
@@ -580,6 +592,13 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update.message = query.message
         await cmd_live(update, context)
     
+    elif (data.startswith("options") or data.startswith("optionsai") or 
+          data == "vix" or data.startswith("indexfutures")):
+        await handle_options_callback(query, context)
+
+    elif data.startswith("stock") or data.startswith("stockai") or data.startswith("stockalert"):
+        await handle_stock_callback(query, context)
+
     elif data.startswith("setalert_"):
         symbol = data.split("_")[1]
         await query.message.reply_text(
@@ -589,6 +608,58 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"উদাহরণ: `/alert {symbol} 50000 above`",
             parse_mode=ParseMode.MARKDOWN
         )
+
+
+
+async def cmd_futures(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Futures trading signal"""
+    if not context.args:
+        await update.message.reply_text(
+            "❌ Usage: `/futures BTCUSDT` বা `/futures BTCUSDT 4h`",
+            parse_mode=ParseMode.MARKDOWN)
+        return
+
+    symbol = context.args[0].upper()
+    if not symbol.endswith("USDT"):
+        symbol += "USDT"
+    interval = context.args[1].lower() if len(context.args) > 1 else "1h"
+
+    await update.message.chat.send_action(ChatAction.UPLOAD_PHOTO)
+    status_msg = await update.message.reply_text(
+        f"⚡ **{symbol}** Futures signal তৈরি হচ্ছে...",
+        parse_mode=ParseMode.MARKDOWN)
+
+    try:
+        df = await binance.get_klines(symbol, interval, 100)
+        ticker = await binance.get_ticker(symbol)
+        signal = analyzer.analyze(df)
+        chart_bytes = chart_gen.generate_chart(df, symbol, interval, signal)
+        futures_analysis = await ai_analyzer.get_futures_signal(symbol, signal, ticker)
+
+        await status_msg.delete()
+
+        keyboard = [
+            [InlineKeyboardButton("📊 Full Analysis", callback_data=f"ai_{symbol}_{interval}"),
+             InlineKeyboardButton("🔄 Refresh", callback_data=f"futures_{symbol}_{interval}")],
+            [InlineKeyboardButton("🔔 Set Alert", callback_data=f"setalert_{symbol}"),
+             InlineKeyboardButton("📡 Live Monitor", callback_data=f"live_{symbol}")]
+        ]
+
+        await update.message.reply_photo(
+            photo=BytesIO(chart_bytes),
+            caption=f"⚡ **{symbol}** Futures Signal | {interval.upper()}",
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+        await update.message.reply_text(
+            futures_analysis,
+            parse_mode=ParseMode.MARKDOWN
+        )
+
+    except Exception as e:
+        await status_msg.edit_text(f"❌ Error: {str(e)}")
+        logger.error(f"Futures error: {e}", exc_info=True)
 
 
 # ═══════════════════════════════════════════
@@ -611,7 +682,7 @@ class CryptoTradingBot:
             print("❌ TELEGRAM_BOT_TOKEN .env file-এ set করুন!")
             return
         
-        if not config.GEMINI_API_KEY:
+        if not config.ANTHROPIC_API_KEY:
             print("⚠️ ANTHROPIC_API_KEY নেই। AI analysis disabled থাকবে।")
         
         app = (Application.builder()
@@ -632,6 +703,23 @@ class CryptoTradingBot:
         app.add_handler(CommandHandler("monitors", cmd_monitors))
         app.add_handler(CommandHandler("movers", cmd_movers))
         app.add_handler(CommandHandler("market", cmd_market))
+        app.add_handler(CommandHandler("futures", cmd_futures))
+        
+        # ═══ Stock Market Commands ═══
+        app.add_handler(CommandHandler("stock", cmd_stock))
+        app.add_handler(CommandHandler("stockai", cmd_stock_analyze))
+        app.add_handler(CommandHandler("sp", cmd_stockprice))
+        app.add_handler(CommandHandler("indices", cmd_indices))
+        app.add_handler(CommandHandler("salert", cmd_stock_alert))
+        app.add_handler(CommandHandler("stockmarket", cmd_stockmarket))
+        
+        # ═══ India Options & Futures ═══
+        app.add_handler(CommandHandler("options", cmd_options))
+        app.add_handler(CommandHandler("optionsai", cmd_options_ai))
+        app.add_handler(CommandHandler("vix", cmd_vix))
+        app.add_handler(CommandHandler("greeks", cmd_greeks))
+        app.add_handler(CommandHandler("ifutures", cmd_index_futures))
+        app.add_handler(CommandHandler("strategy", cmd_strategy))
         
         # Callback query handler (button clicks)
         app.add_handler(CallbackQueryHandler(handle_callback))
